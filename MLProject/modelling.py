@@ -26,7 +26,7 @@ def main():
     parser.add_argument("--max_depth", type=int, default=10)
     args = parser.parse_args()
 
-    mlflow.set_experiment("Telco_Churn_CI")
+
     mlflow.sklearn.autolog()
 
     df = pd.read_csv(args.data_path)
@@ -37,7 +37,7 @@ def main():
         X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    with mlflow.start_run(run_name="ci_retrain"):
+    with mlflow.start_run():
         model = RandomForestClassifier(
             n_estimators=args.n_estimators,
             max_depth=args.max_depth,
