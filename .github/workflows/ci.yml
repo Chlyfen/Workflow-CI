@@ -1,0 +1,75 @@
+name: CI - Retrain Model & Build Docker Image
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+env:
+  MLFLOW_TRACKING_URI: "sqlite:///mlflow.db"
+
+jobs:
+  train-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install MLflow & dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install mlflow==2.15.1 pandas numpy scikit-learn joblib
+
+      - name: Run MLflow Project (retraining)
+        working-directory: MLProject
+        run: |
+          mlflow run . --env-manager=local
+
+      - name: Get latest run id
+        working-directory: MLProject
+        id: get_run_id
+        run: |
+          RUN_ID=$(python -c "
+          import mlflow
+          client = mlflow.tracking.MlflowClient()
+          exp = client.get_experiment_by_name('Telco_Churn_CI')
+          runs = client.search_runs(exp.experiment_id, order_by=['start_time DESC'], max_results=1)
+          print(runs[0].info.run_id)
+          ")
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Upload MLflow run artifact to GitHub Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlflow-run-artifacts
+          path: |
+            MLProject/mlruns/
+            MLProject/mlartifacts/
+            MLProject/mlflow.db
+
+      - name: Build Docker image from MLflow model (mlflow build-docker)
+        working-directory: MLProject
+        run: |
+          mlflow models build-docker \
+            --model-uri "runs:/${{ steps.get_run_id.outputs.run_id }}/model" \
+            --name telco-churn-model \
+            --enable-mlserver
+
+      - name: Log in to Docker Hub
+        if: ${{ secrets.DOCKERHUB_USERNAME != '' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Tag & push image to Docker Hub
+        if: ${{ secrets.DOCKERHUB_USERNAME != '' }}
+        run: |
+          docker tag telco-churn-model ${{ secrets.DOCKERHUB_USERNAME }}/telco-churn-model:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/telco-churn-model:latest
