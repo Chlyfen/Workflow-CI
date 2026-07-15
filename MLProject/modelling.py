@@ -51,7 +51,13 @@ def main():
         print(f"[INFO] Recall   : {recall_score(y_test, y_pred):.4f}")
         print(f"[INFO] F1-score : {f1_score(y_test, y_pred):.4f}")
 
-    print("[INFO] Retraining CI selesai.")
+        # Simpan model langsung ke folder lokal (di luar tracking store),
+        # supaya proses build-docker tidak bergantung pada resolusi artifact MLflow.
+        import shutil
+        if os.path.exists("trained_model"):
+            shutil.rmtree("trained_model")
+        mlflow.sklearn.save_model(model, path="trained_model")
+        print("[INFO] Model juga disimpan lokal di folder trained_model/")
 
 
 if __name__ == "__main__":

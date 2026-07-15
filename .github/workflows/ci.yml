@@ -34,17 +34,7 @@ jobs:
         run: |
           mlflow run . --env-manager=local
 
-      - name: Get latest run id
-        working-directory: MLProject
-        id: get_run_id
-        run: |
-          RUN_ID=$(python -c "
-          import mlflow
-          client = mlflow.tracking.MlflowClient()
-          runs = client.search_runs(experiment_ids=['0'], order_by=['start_time DESC'], max_results=1)
-          print(runs[0].info.run_id)
-          ")
-          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+      
 
       - name: Upload MLflow run artifact to GitHub Actions
         uses: actions/upload-artifact@v4
@@ -55,13 +45,12 @@ jobs:
             MLProject/mlartifacts/
             MLProject/mlflow.db
 
-      - name: Build Docker image from MLflow model (mlflow build-docker)
+      - name: Build Docker image from local model folder (mlflow build-docker)
         working-directory: MLProject
         run: |
-          mlflow models build-docker \
-            --model-uri "runs:/${{ steps.get_run_id.outputs.run_id }}/model" \
-            --name telco-churn-model \
-            --name telco-churn-model
+            mlflow models build-docker \
+              --model-uri trained_model \
+              --name telco-churn-model
 
       - name: Log in to Docker Hub
         if: ${{ env.DOCKERHUB_USERNAME != '' }}
