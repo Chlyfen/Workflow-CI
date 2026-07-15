@@ -41,8 +41,7 @@ jobs:
           RUN_ID=$(python -c "
           import mlflow
           client = mlflow.tracking.MlflowClient()
-          exp = client.get_experiment_by_name('Telco_Churn_CI')
-          runs = client.search_runs(exp.experiment_id, order_by=['start_time DESC'], max_results=1)
+          runs = client.search_runs(experiment_ids=['0'], order_by=['start_time DESC'], max_results=1)
           print(runs[0].info.run_id)
           ")
           echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
